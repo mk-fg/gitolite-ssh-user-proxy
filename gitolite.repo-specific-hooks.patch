@@ -1,0 +1,17 @@
+diff --git a/src/triggers/repo-specific-hooks b/src/triggers/repo-specific-hooks
+index 6e229ea..cdc0d37 100755
+--- a/src/triggers/repo-specific-hooks
++++ b/src/triggers/repo-specific-hooks
+@@ -39,7 +39,11 @@ while (<>) {
+ 
+     # this is a special case
+     if ( $repo eq 'gitolite-admin' and $hook eq 'post-update' ) {
+-        _warn "repo-specific-hooks: ignoring attempts to set post-update hook for the admin repo";
++        # _warn "repo-specific-hooks: running gitolite-admin post-update hooks in-place";
++        foreach my $code (@codes) {
++            my $src = $rc{LOCAL_CODE} . "/hooks/repo-specific/$code";
++            _system( $src );
++        }
+         next;
+     }
+ 
