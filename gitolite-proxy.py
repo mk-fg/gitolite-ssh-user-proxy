@@ -7,7 +7,7 @@ import os, sys, re, pathlib, base64, syslog
 ### Custom ssh shell for git user on gateway (gw) host to proxy connections to gitolite host (gl).
 #
 # Example initial ~git/.ssh/authorized_keys on gw host:
-#  command="/usr/local/bin/gitolite-proxy-shell --auth-update",no-port-forwarding,\
+#  command="/usr/local/bin/gitolite-proxy --auth-update",no-port-forwarding,\
 #   no-X11-forwarding,no-agent-forwarding,no-pty ssh-ed25519 AAA...4u3FI git@gl
 # Also, ~git/.ssh/known_hosts there should have gl host and some id_ed25519 generated.
 # On gl host, key (listed in ak-file on gw) and known_hosts should be present.
@@ -22,7 +22,7 @@ import os, sys, re, pathlib, base64, syslog
 
 
 gl_host_login = 'git@gitolite.host.local'
-gl_proxy_path = '/usr/local/bin/gitolite-proxy-shell'
+gl_proxy_path = '/usr/local/bin/gitolite-proxy'
 gl_shell_path = '/usr/lib/gitolite/gitolite-shell'
 gl_wrapper_script = '''#!/bin/bash
 set -e
@@ -51,7 +51,7 @@ def log_lines(log_func, lines, log_func_last=False, **log_func_kws):
 		if log_func_last and n == len(lines): log_func_last(line)
 		else: log_func(line, **log_func_kws)
 
-syslog.openlog('gitolite-proxy-shell', syslog.LOG_PID, syslog.LOG_AUTH)
+syslog.openlog('gitolite-proxy', syslog.LOG_PID, syslog.LOG_AUTH)
 syslog_line = ft.partial(syslog.syslog, syslog.LOG_WARNING)
 syslog_lines = ft.partial(log_lines, syslog_line)
 
