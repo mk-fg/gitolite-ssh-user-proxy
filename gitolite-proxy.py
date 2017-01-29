@@ -45,23 +45,22 @@ def do_auth_update():
 	with (ssh_dir / 'id_ed25519.pub').open() as src: ssh_pubkey = src.read().strip()
 	with (ssh_dir / 'authorized_keys.base').open() as src: auth_base = src.read()
 
-	mark, auth_gitolite = False, list(map(str.strip, sys.stdin.read().splitlines()))
+	mark, auth_gitolite = None, list(map(str.strip, sys.stdin.read().splitlines()))
 	for n, line in enumerate(auth_gitolite):
-		if line == '# gitolite start':
-			mark = True
-			continue
-		elif line == '# gitolite end': break
-		elif not mark: continue
-		m = re.search( r'^command="\S+ ([^"]+)".*?'
-			r' ((?:ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp256|ssh-dss) .*)$', line )
-		if not m:
-			# Not dumping line itself here to avoid having pubkeys in the logs
-			syslog_line('Failed to match gitolite ssh-auth line {}'.format(n))
-			line = None
-		else:
-			gl_key, ssh_key = m.groups()
-			line = ( 'command="{} {}",no-port-forwarding,no-X11-forwarding,'
-				'no-agent-forwarding,no-pty {}' ).format(gl_proxy_path, gl_key, ssh_key)
+		if mark is None and line == '# gitolite start': mark, line = True, None
+		elif line == '# gitolite end': mark, line = False, None
+		if not mark: line = None
+		if line:
+			m = re.search( r'^command="\S+ ([^"]+)".*?'
+				r' ((?:ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp256|ssh-dss) .*)$', line )
+			if not m:
+				# Not dumping line itself here to avoid having pubkeys in the logs
+				syslog_line('Failed to match gitolite ssh-auth line {}'.format(n))
+				line = None
+			else:
+				gl_key, ssh_key = m.groups()
+				line = ( 'command="{} {}",no-port-forwarding,no-X11-forwarding,'
+					'no-agent-forwarding,no-pty {}' ).format(gl_proxy_path, gl_key, ssh_key)
 		auth_gitolite[n] = line
 	auth_gitolite = '\n'.join(filter(None, auth_gitolite))
 
