@@ -4,23 +4,6 @@ import itertools as it, operator as op, functools as ft
 import os, sys, re, pathlib, base64, syslog
 
 
-### Custom ssh shell for git user on gateway (gw) host to proxy connections to gitolite host (gl).
-#
-# Example initial ~git/.ssh/authorized_keys on gw host:
-#  command="/usr/local/bin/gitolite-proxy --auth-update",no-port-forwarding,\
-#   no-X11-forwarding,no-agent-forwarding,no-pty ssh-ed25519 AAA...4u3FI git@gl
-# Also, ~git/.ssh/known_hosts there should have gl host and some id_ed25519 generated.
-# On gl host, key (listed in ak-file on gw) and known_hosts should be present.
-# Test from gl host (should print key/script):
-#  sudo -u git -- ssh -qT git@gw < ~/.ssh/authorized_keys
-#
-# Then deploy gitolite-admin post-update trigger (will run on gl host) that'd execute that ssh cmd,
-#  read key/script from it, and a) store +x script b) append key with script-command to ak file.
-# Example appended gl ak line:
-#  command="/var/git/.ssh/gw-proxy-script",no-port-forwarding,\
-#   no-X11-forwarding,no-agent-forwarding,no-pty ssh-ed25519 AAA...4u3FI git@gw"
-
-
 gl_host_login = 'git@gitolite.host.local'
 gl_proxy_path = '/usr/local/bin/gitolite-proxy'
 gl_shell_path = '/usr/lib/gitolite/gitolite-shell'
