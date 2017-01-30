@@ -102,7 +102,7 @@ Installation / setup
     LOCAL_CODE => "$rc{GL_ADMIN_BASE}/local",
     POST_COMPILE => ['push-authkeys'],
 
-- Commit/push "push-authkeys" trigger into gitolite-admin repo as
+- Commit/push push-authkeys.sh trigger into gitolite-admin repo as
   ``local/triggers/push-authkeys``, updating gw_proxy_login line in there.
 
 - Done!
@@ -126,6 +126,9 @@ Notes
 - "gitolite-proxy --auth-update" can accept (to stdin) either ssh
   authorized_keys built by gitolite's "ssh-authkeys" or simplier format
   (just keys without ssh-specific cruft) that push-authkeys sends to it.
+
+- gateway-proxy.py needs python3, push-authkeys.sh uses bash and gawk (GNU awk).
+  Both also use ssh, of course.
 
 - Paths and some other options can be tweaked in the vars at the top of the scripts.
 
