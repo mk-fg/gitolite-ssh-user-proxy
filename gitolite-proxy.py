@@ -7,6 +7,7 @@ import os, sys, re, pathlib, base64, syslog
 gl_host_login = 'git@gitolite.host.local'
 gl_proxy_path = '/usr/local/bin/gitolite-proxy'
 gl_shell_path = '/usr/lib/gitolite/gitolite-shell'
+gl_auth_opts = 'no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty'
 gl_wrapper_script = '''#!/bin/bash
 set -e
 read -r key cmd <<< "$SSH_ORIGINAL_COMMAND"
@@ -51,16 +52,22 @@ def do_auth_update():
 		elif line == '# gitolite end': mark, line = False, None
 		if not mark: line = None
 		if line:
-			m = re.search( r'^command="\S+ ([^"]+)".*?'
-				r' ((?:ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp256|ssh-dss) .*)$', line )
+			m = re.search(
+				# Two supported input-line formats here:
+				#  - authorized_keys file with "command=... key" lines,
+				#    for manual "ssh git@gw < ~/.ssh/authorized_keys" operation.
+				#  - push-authkeys trigger output with "# gl-push-authkeys: ..." lines.
+				r'^(command="\S+\s+(?P<id_ssh>[^"]+)".*?|# gl-push-authkeys: ##(?P<id_trigger>.*)##)'
+				r'\s+(?P<key>(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp256|ssh-dss)\s+.*)$', line )
 			if not m:
 				# Not dumping line itself here to avoid having pubkeys in the logs
 				syslog_line('Failed to match gitolite ssh-auth line {}'.format(n))
 				line = None
 			else:
-				gl_key, ssh_key = m.groups()
-				line = ( 'command="{} {}",no-port-forwarding,no-X11-forwarding,'
-					'no-agent-forwarding,no-pty {}' ).format(gl_proxy_path, gl_key, ssh_key)
+				gl_key, ssh_key = m['id_ssh'] or m['id_trigger'], m['key']
+				cmd = '{} {}'.format(gl_proxy_path, gl_key).replace('\\', '\\\\').replace('"', r'\"')
+				auth_opts = ',{}'.format(gl_auth_opts) if gl_auth_opts.strip() else ''
+				line = 'command="{}"{} {}'.format(cmd, auth_opts, ssh_key)
 		auth_gitolite[n] = line
 	auth_gitolite = '\n'.join(filter(None, auth_gitolite))
 

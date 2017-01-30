@@ -42,30 +42,92 @@ git client machine.
 How it works
 ------------
 
-- git\@gl (gitolite user on gl machine) has post-update hook enabled for
-  gitolite-admin repository, which sends authorized_keys list that gitolite
-  builds to gw host (via simple ``ssh git@gw < ~/.ssh/authorized_keys``).
+- gitolite on gl machine has POST_COMPILE "push-authkeys" trigger installed, which
+  sends public keys from gitolite-admin keydir to gw host (via simple ``ssh git@gw < keys``).
 
-- git\@gw builds authorized_keys in same exact way as gitolite does, only
-  replacing command="gitolite-shell" there with command="gitolite-proxy".
+- git\@gw, upon receiving keys (to ``gitolite-proxy --auth-update`` command),
+  builds authorized_keys in same exact way as gitolite's ssh-authkeys trigger
+  does, only instead of command="gitolite-shell" it has command="gitolite-proxy"
+  and authorized_keys file is built on gw host.
 
-  Also has one extra key for git\@gl that runs ``gitolite-proxy --auth-update`` command.
+  Also has one extra key there for git\@gl that runs this
+  ``gitolite-proxy --auth-update`` command.
 
-- Aforementioned gitolite-admin post-update hook also checks/adds one extra key
-  for git\@gw, with a 3-liner "gw-proxy" script to run ``gitolite-shell <key-id>``,
-  reading "key-id" from command passed by gitolite-proxy.
+- Aforementioned push-authkeys trigger (from first step), after sending keys to
+  git\@gw, makes sure that git\@gw key is in ~/.ssh/authorized_keys (in addition
+  to all gitolite-admin keys, if ssh-authkeys is enabled) with a 3-liner
+  "gw-proxy" script to run ``gitolite-shell <key-id>`` (reading "key-id" from
+  command passed by gitolite-proxy).
 
-- Every access to git\@gw runs gitolite-proxy (in same exact was as
-  gitolite-shell), which does straightforward ``os.execlp(ssh -qT gl_host_login
-  key-id git-cmd...)``, which then runs "gw-proxy" 3-liner script above, which puts
-  "git-cmd" into SSH_ORIGINAL_COMMAND and does ``exec gitolite-shell
-  "$key-id"``, exactly same as direct ssh to gitolite host would do it.
+- Every access to git\@gw (using client key) then:
 
-Information about how to setup the thing in more of a step-by-step format can be
-found in a blog entry at one of these URLs:
+  - Runs gitolite-proxy with key-id argument for that specific key (same as
+    gitolite-shell does).
+
+  - Which does straightforward ``os.execlp(ssh -qT gl_host_login key-id git-cmd...)``.
+
+  - Which then runs "gw-proxy" 3-liner script from above on gl host.
+
+  - Which puts "git-cmd" into SSH_ORIGINAL_COMMAND and does
+    ``exec gitolite-shell "$key-id"``, i.e. runs gitolite-shell in the same way
+    as direct ssh to gitolite host would do it.
+
+  - Which then does whatever gitolite is supposed to do for that key and git command.
+
+
+Installation / setup
+--------------------
+
+- Install ``/usr/local/bin/gitolite-proxy`` on a gw host, updating gl_host_login
+  line in there and ``useradd -m git`` there.
+
+- Run ``ssh-keygen -t ed25519`` as both git\@gw and git\@gl, add each host to
+  ~/.ssh/known_hosts on the other one.
+
+- Put following line to ~git/.ssh/authorized_keys.base on gw host, replacing
+  pubkey with ~/.ssh/id_ed25519.pub from git\@gl (split here for readability,
+  must be one line)::
+
+    command="/usr/local/bin/gitolite-proxy --auth-update",no-port-forwarding
+      ,no-X11-forwarding,no-agent-forwarding,no-pty ssh-ed25519 AAA...4u3FI git@gl
+
+  Copy that file to authorized_keys and allow git\@gw write-access to it (will
+  be updated with keys from git\@gl).
+
+- As git\@gl, run ``ssh -qT git@gw < ~/.ssh/authorized_keys`` to push gitolite
+  keys to git\@gw.
+
+- Add this to ~git/.gitolite.rc on gl host right before ENABLE line::
+
+    LOCAL_CODE => "$rc{GL_ADMIN_BASE}/local",
+    POST_COMPILE => ['push-authkeys'],
+
+- Commit/push "push-authkeys" trigger into gitolite-admin repo as
+  ``local/triggers/push-authkeys``, updating gw_proxy_login line in there.
+
+- Done!
+
+More info on the setup can found in a blog entry at one of these URLs:
 
 - http://blog.fraggod.net/2017/01/29/proxying-ssh-user-connections-to-gitolite-host-transparently.html
 - https://github.com/mk-fg/blog/blob/master/content/2017-01-29.proxying_ssh_user_connections_to_gitolite_host.rst
+
+
+Notes
+-----
+
+- With this setup in place, "ssh-authkeys" trigger can be disabled in gitolite,
+  which will make it only accessible through git\@gw host, and not directly.
+
+- "push-authkeys" trigger can also be installed on gitolite host without the
+  need to have it in gitolite-admin repo - see `docs on gitolite triggers
+  <http://gitolite.com/gitolite/gitolite.html#triggers>`_ for more details.
+
+- "gitolite-proxy --auth-update" can accept (to stdin) either ssh
+  authorized_keys built by gitolite's "ssh-authkeys" or simplier format
+  (just keys without ssh-specific cruft) that push-authkeys sends to it.
+
+- Paths and some other options can be tweaked in the vars at the top of the scripts.
 
 
 Other options
