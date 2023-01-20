@@ -13,7 +13,7 @@ gw_script_path="$HOME"/.ssh/gw-proxy-script
 clean_exit_mark='-- done --'
 readarray -t keys < <(
 	find "$GL_ADMIN_BASE"/keydir/ -xdev -type f -name "*.pub" -print0 | sort -z |
-	xargs -0 gawk 'match($1,/^(ssh-|ecdsa-|sk-ssh-)/) && $2 {
+	xargs -0 gawk 'match($1,/^(ssh-|ecdsa-|sk-ssh-|sk-ecdsa-)/) && $2 {
 		fn=gensub(/.*\/(.*)\.pub$/, "\\1", 1, FILENAME)
 		printf("# gl-push-authkeys: ##%s## %s %s\n", fn, $1, $2)}'
 	echo "$clean_exit_mark" )

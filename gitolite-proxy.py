@@ -58,8 +58,8 @@ def do_auth_update():
 				#    for manual "ssh git@gw < ~/.ssh/authorized_keys" operation.
 				#  - push-authkeys trigger output with "# gl-push-authkeys: ..." lines.
 				r'^(command="\S+\s+(?P<id_ssh>[^"]+)".*?|# gl-push-authkeys: ##(?P<id_trigger>.*)##)'
-				r'\s+(?P<key>((sk-)?ssh-ed25519|'
-					r'(sk-)?ecdsa-sha2-nistp\d{3}|ssh-rsa|ssh-dss)(@openssh\.com)?\s+.*)$', line )
+				r'\s+(?P<key>(ssh-(rsa|dss)|(sk-)?ssh-ed25519|'
+					r'(sk-)?ecdsa-sha2-nistp\d{3})(@openssh\.com)?\s+.*)$', line )
 			if not m:
 				# Not dumping line itself here to avoid having pubkeys in the logs
 				syslog_line('Failed to match gitolite ssh-auth line {}'.format(n))
