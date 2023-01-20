@@ -9,6 +9,12 @@ transparently.
 .. contents::
   :backlinks: none
 
+Repository URLs:
+
+- https://github.com/mk-fg/gitolite-ssh-user-proxy
+- https://codeberg.org/mk-fg/gitolite-ssh-user-proxy
+- https://fraggod.net/code/git/gitolite-ssh-user-proxy
+
 
 What it does
 ------------
