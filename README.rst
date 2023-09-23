@@ -107,11 +107,14 @@ Installation / setup
 
     command="/usr/local/bin/gitolite-proxy --auth-update",restrict ssh-ed25519 AAA...4u3FI git@gl
 
-  Copy that file to a normal authorized_keys file as well, and allow git\@gw
-  write-access to it (will be updated with keys from git\@gl).
+  Copy that file to a normal ``authorized_keys`` file as well, allow write
+  access for git\@gw to it and ``authorized_keys.old`` backup-file next to it
+  (--auth-update from git\@gl will be updating them). Write-access is only
+  needed to those two files.
 
 - As git\@gl, run ``ssh -qT git@gw < ~/.ssh/authorized_keys`` to do an initial
-  push of gitolite authorized-keys list to git\@gw.
+  push of gitolite authorized-keys list to git\@gw, and test that gitolite-proxy
+  script and all required access permissions work.
 
 - Add this to ~git/.gitolite.rc on gl host right before ENABLE line::
 
