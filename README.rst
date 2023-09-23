@@ -2,9 +2,11 @@
 gitolite-ssh-user-proxy
 =======================
 
-Custom shell+trigger to proxy ssh connection to `gitolite
-<http://gitolite.com/>`_ user\@host through a proxy/bastion host securely and
+Custom shell+trigger to proxy ssh connection to gitolite_
+user\@host through a proxy/bastion host securely and
 transparently.
+
+.. _gitolite: https://gitolite.com/
 
 .. contents::
   :backlinks: none
@@ -38,11 +40,12 @@ In a setup like this one::
   +---------------------+
 
 ...where "dev-machine" can't access "gl" (gitolite) host directly, allows
-fully-transparent access to gitolite via specific user on a "gw" (myhost.net) host.
+fully-transparent access to gitolite via specific ssh user on a "gw" host
+("git\@myhost.net" in this example).
 
 E.g. simply do ``git add remote origin git@myhost.net:myrepo`` and all the
-things gitolite will work, without any extra ssh or forwarding configuration on
-git client machine.
+things gitolite will work, without any extra ssh or forwarding configuration
+for custom ports and such on a dev machine (git client).
 
 
 How it works
@@ -53,70 +56,80 @@ How it works
 
 - git\@gw, upon receiving keys (to ``gitolite-proxy --auth-update`` command),
   builds authorized_keys in same exact way as gitolite's ssh-authkeys trigger
-  does, only instead of command="gitolite-shell" it has command="gitolite-proxy"
-  and authorized_keys file is built on gw host.
+  does, only instead of command="gitolite-shell <key-id>" it has
+  command="gitolite-proxy <key-id>", allowing for same gitolite ssh auth to
+  happen on gw host instead.
 
-  Also has one extra key there for git\@gl that runs this
+  Also has one extra key there for access from git\@gl hook, that runs this
   ``gitolite-proxy --auth-update`` command.
 
 - Aforementioned push-authkeys trigger (from first step), after sending keys to
-  git\@gw, makes sure that git\@gw key is in ~/.ssh/authorized_keys (in addition
-  to all gitolite-admin keys, if ssh-authkeys is enabled) with a 3-liner
-  "gw-proxy" script to run ``gitolite-shell <key-id>`` (reading "key-id" from
-  command passed by gitolite-proxy).
+  git\@gw, makes sure that git\@gw key is in ~/.ssh/authorized_keys, which will
+  be used for all proxied connections.
 
-- Every access to git\@gw (using client key) then:
+  (in addition to all gitolite-admin keys, if ssh-authkeys is enabled)
 
-  - Runs gitolite-proxy with key-id argument for that specific key (same as
-    gitolite-shell does).
+  git\@gw -> git\@gl access a forces 3-liner command="gw-proxy" script,
+  which will then run ``gitolite-shell <key-id>`` (reading "key-id" for it
+  from command passed by gitolite-proxy), same as gitolite will do normally
+  with direct access.
 
-  - Which does straightforward ``os.execlp(ssh -qT gl_host_login key-id git-cmd...)``.
+So every access to git\@gw (using client key) then ends up working like this:
 
-  - Which then runs "gw-proxy" 3-liner script from above on gl host.
+- Runs gitolite-proxy with key-id argument for that specific key - same key-id
+  arg as gitolite-shell normally gets from command= (when accessed directly).
 
-  - Which puts "git-cmd" into SSH_ORIGINAL_COMMAND and does
-    ``exec gitolite-shell "$key-id"``, i.e. runs gitolite-shell in the same way
-    as direct ssh to gitolite host would do it.
+- Which does straightforward ``os.execlp(ssh -qT gl_host_login key-id git-cmd...)``.
 
-  - Which then does whatever gitolite is supposed to do for that key and git command.
+- Which then runs "gw-proxy" 3-liner script from above on gl host.
+
+- Which puts "git-cmd" into SSH_ORIGINAL_COMMAND and does
+  ``exec gitolite-shell key-id``, i.e. runs gitolite-shell in the same way
+  as direct ssh to gitolite host would do it.
+
+- Which then does whatever gitolite is supposed to do for that key and git command.
 
 
 Installation / setup
 --------------------
 
-- Install ``/usr/local/bin/gitolite-proxy`` on a gw host, updating gl_host_login
-  line in there and ``useradd -m git`` there.
+- Install/setup gitolite on git\@gl destination as usual.
+
+- Install `gitolite-proxy.py`_ to ``/usr/local/bin/gitolite-proxy`` on a gw host,
+  updating gl_host_login line in there, run ``useradd -m git`` to create git\@gw
+  user account for sshd.
 
 - Run ``ssh-keygen -t ed25519`` as both git\@gw and git\@gl, add each host to
   ~/.ssh/known_hosts on the other one.
 
 - Put following line to ~git/.ssh/authorized_keys.base on gw host, replacing
-  pubkey with ~/.ssh/id_ed25519.pub from git\@gl (split here for readability,
-  must be one line)::
+  pubkey with ~/.ssh/id_ed25519.pub from git\@gl::
 
-    command="/usr/local/bin/gitolite-proxy --auth-update",no-port-forwarding
-      ,no-X11-forwarding,no-agent-forwarding,no-pty ssh-ed25519 AAA...4u3FI git@gl
+    command="/usr/local/bin/gitolite-proxy --auth-update",restrict ssh-ed25519 AAA...4u3FI git@gl
 
-  Copy that file to authorized_keys and allow git\@gw write-access to it (will
-  be updated with keys from git\@gl).
+  Copy that file to a normal authorized_keys file as well, and allow git\@gw
+  write-access to it (will be updated with keys from git\@gl).
 
-- As git\@gl, run ``ssh -qT git@gw < ~/.ssh/authorized_keys`` to push gitolite
-  keys to git\@gw.
+- As git\@gl, run ``ssh -qT git@gw < ~/.ssh/authorized_keys`` to do an initial
+  push of gitolite authorized-keys list to git\@gw.
 
 - Add this to ~git/.gitolite.rc on gl host right before ENABLE line::
 
     LOCAL_CODE => "$rc{GL_ADMIN_BASE}/local",
     POST_COMPILE => ['push-authkeys'],
 
-- Commit/push push-authkeys.sh trigger into gitolite-admin repo as
+- Commit/push `push-authkeys.sh`_ trigger into gitolite-admin repo as
   ``local/triggers/push-authkeys``, updating gw_proxy_login line in there.
 
 - Done!
 
-More info on the setup can found in a blog entry at one of these URLs:
+Bit more info on the setup can found in an old blog entry at one of these URLs:
 
 - http://blog.fraggod.net/2017/01/29/proxying-ssh-user-connections-to-gitolite-host-transparently.html
 - https://github.com/mk-fg/blog/blob/master/content/2017-01-29.proxying_ssh_user_connections_to_gitolite_host.rst
+
+.. _gitolite-proxy.py: gitolite-proxy
+.. _push-authkeys.sh: push-authkeys.sh
 
 
 Notes
@@ -125,7 +138,7 @@ Notes
 - With this setup in place, "ssh-authkeys" trigger can be disabled in gitolite,
   which will make it only accessible through git\@gw host, and not directly.
 
-- "push-authkeys" trigger can also be installed on gitolite host without the
+- "push-authkeys" trigger can also be installed on gitolite host, without the
   need to have it in gitolite-admin repo - see `docs on gitolite triggers
   <http://gitolite.com/gitolite/gitolite.html#triggers>`_ for more details.
 
@@ -168,5 +181,7 @@ Assuming setup from "What it does" section above:
 - Configure ssh to use ProxyCommand, which will login to gw host and setup
   forwarding through it.
 
-One advantage of such lower-level forwarding is that ssh authentication to
-gitolite is only handled on gitolite host, gw host has no clue about that.
+One advantage of using lower-level port-forwarding is that ssh authentication
+to gitolite is only handled on gitolite host/container/vm itself, all in one place,
+instead of exposing it in on/to a gw host, adding one extra place where it
+can potentially be vulnerable, broken, monitored, or tampered with.

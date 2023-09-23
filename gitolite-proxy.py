@@ -3,11 +3,12 @@
 import itertools as it, operator as op, functools as ft
 import os, sys, re, pathlib, base64, syslog
 
+# Script to run on all ssh accesses to a git user on gateway host
 
 gl_host_login = 'git@gitolite.host.local'
 gl_proxy_path = '/usr/local/bin/gitolite-proxy'
 gl_shell_path = '/usr/lib/gitolite/gitolite-shell'
-gl_auth_opts = 'no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty'
+gl_auth_opts = 'restrict'
 gl_wrapper_script = '''#!/bin/bash
 set -e
 read -r key cmd <<< "$SSH_ORIGINAL_COMMAND"

@@ -2,6 +2,8 @@
 set -e -o pipefail
 umask 0077
 
+# Script to commit into gitolite-admin repo and to run from POST_COMPILE trigger
+
 gw_proxy_login=git@gateway.host.local
 gw_script_path="$HOME"/.ssh/gw-proxy-script
 
@@ -42,7 +44,6 @@ chmod +x "$gw_script_path"
 grep -sqF "$gw_key" ~/.ssh/authorized_keys || {
 	exec 3>>~/.ssh/authorized_keys
 	echo >&3 "### Gateway-proxy key, used for indirect access"
-	echo >&3 "command=\"$gw_script_path\""`
-		`",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty $gw_key"
+	echo >&3 "command=\"$gw_script_path\",restrict $gw_key"
 	exec 3>&-
 }
