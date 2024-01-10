@@ -146,7 +146,7 @@ Notes
   <http://gitolite.com/gitolite/gitolite.html#triggers>`_ for more details.
 
 - "gitolite-proxy --auth-update" can accept (to stdin) either ssh
-  authorized_keys built by gitolite's "ssh-authkeys" or simplier format
+  authorized_keys built by gitolite's "ssh-authkeys" or simpler format
   (just keys without ssh-specific cruft) that push-authkeys sends to it.
 
 - gateway-proxy.py needs python3, push-authkeys.sh uses bash and gawk (GNU awk).
